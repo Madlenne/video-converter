@@ -18,19 +18,14 @@ const io = require("socket.io")(server, {
   }
 });
 
-// const { Server } = require("socket.io");
-// const io = new Server(server);
 app.io = io;
 
 const PORT = process.env.PORT || 5000
 
-// parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// parse application/json
 app.use(bodyParser.json());
 
-//support parsing of application/x-www-form-urlencoded post data
 
 app.use(
   fileUpload({
@@ -46,12 +41,11 @@ ffmpeg.setFfprobePath("/usr/local/bin/ffprobe");
 
 ffmpeg.setFlvtoolPath("/usr/local/flvtool");
 
-console.log(ffmpeg, PORT);
 
-// ffmpeg.getAvailableCodecs(function(err, codecs) {
-//   console.log('Available codecs:');
-//   console.log(codecs);
-// });
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  next();
+});
 
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
@@ -65,16 +59,10 @@ let globalFile;
 
 
 app.post("/convert", (req, res) => {
-console.log(req);
   let to = req.body.to;
   let file = req.files.file;
   globalFile = file.name;
 
-  console.log('FILEEE', file);
-  let withCodec = req.body.with;
-  let fileName = `output.${to}`;
-  console.log('aaaa', to);
-  console.log('bbbb ', file.name);
 
   file.mv("tmp/" + file.name, function (err) {
     if (err) return res.sendStatus(500).send(err);
@@ -82,123 +70,169 @@ console.log(req);
     res.header("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "text/html");
     res.send("File Uploaded successfully");
-        // res.redirect('/');
       });
-  console.log('aaa', req.body);
-
-
-  // var result = ffmpeg("tmp/" + file.name)
-  //   .format(to)
-  //   .videoCodec('mpeg4')
-  //   .outputOptions(['-preset veryslow', '-crf 22'])
-  //   .on('progress', function(progress) {
-  //       console.log('Processing: ' + progress.percent + '% done');
-  //       req.app.io.on('connection', (socket) => {
-  //         req.app.io.emit('progress', { progress: progress.percent }); // This will emit the event to all connected sockets
-  //           // io.emit('progress', 'aaaaaa');
-  //           // res.render('index');
-  //       });
-  //     })
-  //   .on('codecData', function(data) {
-  //       console.log('Video details ' + data.video_details);
-  //       console.log('Video format  ' + data.format);
-  //       console.log('Video codec ' + data.video);
-  //       console.log('WRRRR  ' + file.name);
-  //     })
-
-  //   .on("end", function (stdout, stderr) {
-  //     console.log("Finished", stdout);
-
-  //       // ffmpeg.ffprobe(__dirname  + '/output/' + fileName, function(err, metadata) {
-  //       //     console.log("HALO2", fileName, metadata, '$$$$'); // all metadata
-  //       // });
-
-  //       // res.redirect('/');
-
-  //   })
-  //   .on("error", function (err) {
-  //     console.log("an error happened: " + err.message);
-  //     fs.unlink("tmp/" + file.name, function (err) {
-  //       if (err) throw err;
-  //       console.log("File deleted");
-  //     });
-  //   })
-  //   .saveToFile(__dirname  + '/output/' + fileName)
-
-
-//     const fileName2 = `output2.${to}`;
-
-//     var result2 = ffmpeg("tmp/" + file.name)
-//     .format(to)
-//     .videoCodec('libx264')
-//     .outputOptions(['-preset veryslow', '-crf 22'])
-//     .on('progress', function(progress) {
-//         console.log('Processing: ' + progress.percent + '% done');
-//       })
-//     .on('codecData', function(data) {
-//         console.log('Video details ' + data.video_details);
-//         console.log('Video format  ' + data.format);
-//         console.log('Video codec ' + data.video);
-//         console.log('WRRRR  ' + file.name);
-//       })
-
-//     .on("end", function (stdout, stderr) {
-//       console.log("Finished", stdout);
-
-//         ffmpeg.ffprobe(__dirname  + '/output/' + fileName2, function(err, metadata) {
-//             console.log("HALO2", fileName2, metadata, '$$$$'); // all metadata
-//         });
-
-//     })
-//     .on("error", function (err) {
-//       console.log("an error happened: " + err.message);
-//       fs.unlink("tmp/" + file.name, function (err) {
-//         if (err) throw err;
-//         console.log("File deleted");
-//       });
-//     })
-//     .saveToFile(__dirname  + '/output/' + fileName2)
 
 });
 
 app.post('/test', (req, res) => {
-  console.log('aaa', req.body, globalFile);
 
   let to = req.body.to;
-  let withCodec = req.body.withCodec;
-  let fileName = `output.${to}`;
+  let fileNameMp4 = `outputMp4.${to}`;
+  let fileNameLibx264 = `outputLibx264.${to}`;
+  let fileNameVp9 = `outputVp9.${to}`;
+  let fileNameAv1 = `outputAv1.${to}`;
+  let param = req.body.param;
+  let preset = param === "encoding" ? "ultrafast" : "veryslow";
 
+  let bitrate = req.body.bitrate;
+  let resolution = `?x${req.body.resolution}`;
+  let fps = req.body.fps;
   var result = ffmpeg("tmp/" + globalFile)
+    .withFpsInput(fps)
+    .videoBitrate(bitrate, true)
+    .size(resolution)
+    .withFps(fps)
     .format(to)
-    .videoCodec(withCodec)
-    //similar quality
-    .outputOptions(['-preset veryslow', '-crf 22'])
+    .videoCodec('libx265')
+    .outputOptions([ `-preset ${preset}`, '-crf 22', `-b ${bitrate}k`, `-minrate ${bitrate}k`, `-maxrate ${bitrate}k` ])
     .on('progress', function(progress) {
-        console.log('Processing: ' + progress.percent + '% done');
-          req.app.io.emit('progress', { progress: progress.percent }); // This will emit the event to all connected sockets
-        // });
+        req.app.io.emit('progress', { progress: progress.percent, frames: progress.frames,
+                                     currentFps: progress.currentFps, currentKbps: progress.currentKbps, 
+                                      targetSize: progress.targetSize }); 
+
       })
     .on('codecData', function(data) {
-        console.log('Video details ' + data.video_details);
-        console.log('Video format  ' + data.format);
-        console.log('Video codec ' + data.video);
       })
+    .on("end", function (err, stdout, stderr) {
 
-    .on("end", function (stdout, stderr) {
-      console.log("Finished", stdout);
-
-        ffmpeg.ffprobe(__dirname  + '/output/' + fileName, function(err, metadata) {
-            console.log("HALO2", fileName, metadata, '$$$$'); // all metadata
-            req.app.io.emit('metadata', 
+        ffmpeg.ffprobe(__dirname  + '/output/' + fileNameMp4, function(err, metadata) {
+            req.app.io.emit('metadataMp4', 
               { profile: metadata.streams[0].profile,
                 duration: metadata.streams[0].duration,
                 bit_rate: metadata.streams[0].bit_rate,
                 size: metadata.format.size,
+                level: metadata.streams[0].level,
+                avg_frame_rate: metadata.streams[0].avg_frame_rate,
               });
         });
-        // res.send('OK');
-        // res.redirect('/');
 
+          ffmpeg("output/outputMp4.mp4")
+          .outputOptions(['-psnr'])
+          .on("end", function (err, stdout, stderr) {
+      
+              var regex = /PSNR Mean Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) Avg:([0-9\.]+)/
+              var psnr = stdout.match(regex);
+              req.app.io.emit('psnrMp4', 
+              { 
+                psnr: psnr[4]
+              });
+      
+          }).saveToFile(__dirname  + '/output/trash.mp4');
+
+    })
+    .on("error", function (err) {
+      console.log("an error happened: " + err.message);
+      fs.unlink("tmp/" + globalFile, function (err) {
+        if (err) {
+          throw err;
+        }
+        console.log("File deleted");
+        return res.sendStatus(500).send(err);
+      });
+    })
+    .saveToFile(__dirname  + '/output/' + fileNameMp4) 
+
+
+ var result = ffmpeg("tmp/" + globalFile)
+    .videoBitrate(bitrate)
+    .size(resolution)
+    .inputFPS(fps)
+    .fps(fps)
+    .format(to)
+    .videoCodec('libx264')
+    .outputOptions([`-preset ${preset}`, '-crf 22', `-b ${bitrate}k`, `-minrate ${bitrate}k`, `-maxrate ${bitrate}k` ])
+    .on('progress', function(progress) {
+          req.app.io.emit('progress2', { progress: progress.percent, frames: progress.frames,
+                                        currentFps: progress.currentFps, currentKbps: progress.currentKbps, 
+                                        targetSize: progress.targetSize }); 
+      })
+    .on('codecData', function(data) {
+      })
+
+    .on("end", function (err, stdout, stderr) {
+
+        ffmpeg.ffprobe(__dirname  + '/output/' + fileNameLibx264, function(err, metadata) {
+            req.app.io.emit('metadataLibx264', 
+            { profile: metadata.streams[0].profile,
+              duration: metadata.streams[0].duration,
+              bit_rate: metadata.streams[0].bit_rate,
+              size: metadata.format.size,
+              level: metadata.streams[0].level,
+              avg_frame_rate: metadata.streams[0].avg_frame_rate,
+            });
+        });
+        ffmpeg("output/outputLibx264.mp4")
+        .outputOptions(['-psnr'])
+        .on("end", function (err, stdout, stderr) {
+    
+            var regex = /PSNR Mean Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) Avg:([0-9\.]+)/
+            var psnr = stdout.match(regex);
+            req.app.io.emit('psnrLibx264', 
+            { 
+              psnr: psnr[4]
+            });
+
+      }).saveToFile(__dirname  +'/output/trash2.mp4')
+    })
+    .on("error", function (err) {
+      console.log("an error happened: " + err.message);
+      fs.unlink("tmp/" + globalFile, function (err) {
+        if (err) throw err;
+      });
+    })
+    .saveToFile(__dirname  + '/output/' + fileNameLibx264)
+
+    var result = ffmpeg("tmp/" + globalFile)
+    .videoBitrate(bitrate)
+    .size(resolution)
+    .fps(fps)
+    .format(to)
+    .videoCodec('libvpx-vp9')
+    .outputOptions([`-preset ${preset}`, '-crf 22', `-b ${bitrate}k`, `-minrate ${bitrate}k`, `-maxrate ${bitrate}k` ])
+    .on('progress', function(progress) {
+          req.app.io.emit('progress3', { progress: progress.percent, frames: progress.frames,
+                                        currentFps: progress.currentFps, currentKbps: progress.currentKbps, 
+                                        targetSize: progress.targetSize }); // This will emit the event to all connected sockets
+      })
+    .on('codecData', function(data) {
+
+      })
+
+    .on("end", function (err, stdout, stderr) {
+
+        ffmpeg.ffprobe(__dirname  + '/output/' + fileNameVp9, function(err, metadata) {
+
+            req.app.io.emit('metadataVp9', 
+            { profile: metadata.streams[0].profile,
+              duration: metadata.streams[0].duration,
+              bit_rate: metadata.streams[0].bit_rate,
+              size: metadata.format.size,
+              level: metadata.streams[0].level,
+              avg_frame_rate: metadata.streams[0].avg_frame_rate,
+            });
+        });
+
+        ffmpeg("output/outputVp9.mp4")
+        .outputOptions(['-psnr'])
+        .on("end", function (err, stdout, stderr) {
+    
+            var regex = /PSNR Mean Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) Avg:([0-9\.]+)/
+            var psnr = stdout.match(regex);
+            req.app.io.emit('psnrVp9', 
+            { 
+              psnr: psnr[4]
+            });
+      }).saveToFile(__dirname  + '/output/trash3.mp4' )
     })
     .on("error", function (err) {
       console.log("an error happened: " + err.message);
@@ -207,44 +241,111 @@ app.post('/test', (req, res) => {
         console.log("File deleted");
       });
     })
-    .saveToFile(__dirname  + '/output/' + fileName)
+    .saveToFile(__dirname  + '/output/' + fileNameVp9);
 
 
-//  var result = ffmpeg("tmp/" + globalFile)
-//     .format(to)
-//     .videoCodec('libx264')
-//     .outputOptions(['-preset veryslow', '-crf 22'])
-//     .on('progress', function(progress) {
-//         console.log('Processing: ' + progress.percent + '% done');
-//           req.app.io.emit('progress2', { progress: progress.percent }); // This will emit the event to all connected sockets
-//         // });
-//       })
-//     .on('codecData', function(data) {
-//         console.log('Video details ' + data.video_details);
-//         console.log('Video format  ' + data.format);
-//         console.log('Video codec ' + data.video);
-//       })
+    var result = ffmpeg("tmp/" + globalFile)
+    .videoBitrate(bitrate)
+    .size(resolution)
+    .inputFPS(fps)
+    .fps(fps)
+    .format(to)
+    .videoCodec('libaom-av1')
+    .outputOptions([`-preset ${preset}`, '-crf 22', `-b ${bitrate}k`, `-minrate ${bitrate}k`, `-maxrate ${bitrate}k` ])
+    .on('progress', function(progress) {
+          req.app.io.emit('progress4', { progress: progress.percent, frames: progress.frames,
+                                        currentFps: progress.currentFps, currentKbps: progress.currentKbps, 
+                                        targetSize: progress.targetSize }); 
+      })
+    .on('codecData', function(data) {
+      })
+    .on("end", function (err, stdout, stderr) {
 
-//     .on("end", function (stdout, stderr) {
-//       console.log("Finished", stdout);
+        ffmpeg.ffprobe(__dirname  + '/output/' + fileNameAv1, function(err, metadata) {
 
-//         // ffmpeg.ffprobe(__dirname  + '/output/' + fileName, function(err, metadata) {
-//         //     console.log("HALO2", fileName, metadata, '$$$$'); // all metadata
-//         // });
-//         res.send('OK');
-//         // res.redirect('/');
+            req.app.io.emit('metadataAv1', 
+            { profile: metadata.streams[0].profile,
+              duration: metadata.streams[0].duration,
+              bit_rate: metadata.streams[0].bit_rate,
+              size: metadata.format.size,
+              level: metadata.streams[0].level,
+              avg_frame_rate: metadata.streams[0].avg_frame_rate,
+            });
+        });
 
-//     })
-//     .on("error", function (err) {
-//       console.log("an error happened: " + err.message);
-//       fs.unlink("tmp/" + globalFile, function (err) {
-//         if (err) throw err;
-//         console.log("File deleted");
-//       });
-//     })
-//     .saveToFile(__dirname  + '/output/' + fileName)
+        ffmpeg("output/outputAv1.mp4")
+        .outputOptions(['-psnr'])
+        .on("end", function (err, stdout, stderr) {
+    
+            var regex = /PSNR Mean Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) Avg:([0-9\.]+)/
+            var psnr = stdout.match(regex);
+            req.app.io.emit('psnrAv1', 
+            { 
+              psnr: psnr[4]
+            });
 
+      }).saveToFile(__dirname  +'/output/trash4.mp4')
+    })
+    .on("error", function (err) {
+      console.log("an error happened: " + err.message);
+      fs.unlink("tmp/" + globalFile, function (err) {
+        if (err) throw err;
+        console.log("File deleted");
+      });
+    })
+    .saveToFile(__dirname  + '/output/' + fileNameAv1)
+
+  
+
+
+    var result = ffmpeg("tmp/" + globalFile)
+    .size('2274x1280')
+    .saveToFile(__dirname  + '/tmp/new.mp4');
+
+    var result = ffmpeg('/tmp/new.mp4').outputOptions([`-preset ${preset}`, '-crf 22'])
+
+    var vp8_webm = ffmpeg('tmp/new.mp4')
+        .outputOptions('-psnr') 
+          .on('progress', function(progress) {
+        })
+        .on('error', function(err) {
+                })
+        .on('end', function(err, stdout, stderr) {
+              console.log('Processing finished.');
+              var regex = /LPSNR=Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) \*:([0-9\.]+)/
+              var psnr = stdout.match(regex);
+                })
+        .save('new2.webm');
+
+    var result = ffmpeg("output/outputMp4.mp4")
+    .outputOptions(['-psnr'])
+
+    .on("end", function (err, stdout, stderr) {
+
+        var regex = /LPSNR=Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) \*:([0-9\.]+)/
+        var psnr = stdout.match(regex);
+        fs.unlink("tmp/" + globalFile, function (err) {
+          if (err) throw err;
+          console.log("File deleted");
+        });
+    })
+    .on("error", function (err) {
+      console.log("an error happened: " + err.message);
+      fs.unlink("tmp/" + globalFile, function (err) {
+        if (err) throw err;
+      });
+    })
+    .saveToFile(__dirname  + '/output/' + fileNameAv1) 
+  
 })
+
+app.get('/download', function(req, res){
+  const fileName = req.query.fileName;
+  const file = __dirname  + '/output/' + fileName;
+  res.header("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "text/html");
+  res.download(file);
+});
 
 server.listen(PORT, () => {
   console.log('listening on *:5000');
