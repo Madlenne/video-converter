@@ -35,11 +35,11 @@ app.use(
 );
 
 
-ffmpeg.setFfmpegPath("/usr/local/bin/ffmpeg");
+// ffmpeg.setFfmpegPath("/usr/local/bin/ffmpeg");
 
-ffmpeg.setFfprobePath("/usr/local/bin/ffprobe");
+// ffmpeg.setFfprobePath("/usr/local/bin/ffprobe");
 
-ffmpeg.setFlvtoolPath("/usr/local/flvtool");
+// ffmpeg.setFlvtoolPath("/usr/local/flvtool");
 
 
 app.use((req, res, next) => {
