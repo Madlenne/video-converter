@@ -63,7 +63,7 @@ app.post("/convert", (req, res) => {
   let file = req.files.file;
   globalFile = file.name;
 
-
+console.log(file.name);
   file.mv("tmp/" + file.name, function (err) {
     if (err) return res.sendStatus(500).send(err);
     console.log("File Uploaded successfully", file.name);
@@ -296,46 +296,6 @@ app.post('/test', (req, res) => {
     .saveToFile(__dirname  + '/output/' + fileNameAv1)
 
   
-
-
-    var result = ffmpeg("tmp/" + globalFile)
-    .size('2274x1280')
-    .saveToFile(__dirname  + '/tmp/new.mp4');
-
-    var result = ffmpeg('/tmp/new.mp4').outputOptions([`-preset ${preset}`, '-crf 22'])
-
-    var vp8_webm = ffmpeg('tmp/new.mp4')
-        .outputOptions('-psnr') 
-          .on('progress', function(progress) {
-        })
-        .on('error', function(err) {
-                })
-        .on('end', function(err, stdout, stderr) {
-              console.log('Processing finished.');
-              var regex = /LPSNR=Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) \*:([0-9\.]+)/
-              var psnr = stdout.match(regex);
-                })
-        .save('new2.webm');
-
-    var result = ffmpeg("output/outputMp4.mp4")
-    .outputOptions(['-psnr'])
-
-    .on("end", function (err, stdout, stderr) {
-
-        var regex = /LPSNR=Y:([0-9\.]+) U:([0-9\.]+) V:([0-9\.]+) \*:([0-9\.]+)/
-        var psnr = stdout.match(regex);
-        fs.unlink("tmp/" + globalFile, function (err) {
-          if (err) throw err;
-          console.log("File deleted");
-        });
-    })
-    .on("error", function (err) {
-      console.log("an error happened: " + err.message);
-      fs.unlink("tmp/" + globalFile, function (err) {
-        if (err) throw err;
-      });
-    })
-    .saveToFile(__dirname  + '/output/' + fileNameAv1) 
   
 })
 
